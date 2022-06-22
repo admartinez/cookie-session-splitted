@@ -1,5 +1,7 @@
 /*!
- * cookie-session
+ * cookie-session-splitted
+ * from cookie-session modified by Adrian Martinez
+ * Copyright(c) 2022 Adrian Martinez
  * Copyright(c) 2013 Jonathan Ong
  * Copyright(c) 2014-2017 Douglas Christopher Wilson
  * MIT Licensed
@@ -13,9 +15,10 @@
  */
 
 var Buffer = require('safe-buffer').Buffer
-var debug = require('debug')('cookie-session')
+var debug = require('debug')('cookie-session-splitted')
 var Cookies = require('cookies')
 var onHeaders = require('on-headers')
+var CookieModule = require('cookie')
 
 /**
  * Module exports.
@@ -38,6 +41,12 @@ module.exports = cookieSession
  * @public
  */
 
+const MAX_COOKIE_SIZE = 4096
+
+function setChunkName (name, i) {
+  return `${name}.${i}`
+}
+
 function cookieSession (options) {
   var opts = options || {}
 
@@ -55,7 +64,19 @@ function cookieSession (options) {
 
   if (!keys && opts.signed) throw new Error('.keys required.')
 
+  if (opts.max_cookie_size == null) opts.max_cookie_size = MAX_COOKIE_SIZE
+
   debug('session options %j', opts)
+
+  const { transient: emptyTransient, ...emptyCookieOptions } = options
+  emptyCookieOptions.expires = emptyTransient ? 0 : new Date()
+  emptyCookieOptions.path = emptyCookieOptions.path || '/'
+  const emptyCookie = CookieModule.serialize(
+    setChunkName(name, 0),
+    '',
+    emptyCookieOptions
+  )
+  const cookieChunkSize = opts.max_cookie_size - emptyCookie.length
 
   return function _cookieSession (req, res, next) {
     var cookies = new Cookies(req, res, {
@@ -64,7 +85,9 @@ function cookieSession (options) {
     var sess
 
     // for overriding
-    req.sessionOptions = Object.create(opts)
+    req.sessionOptions = Object.assign({}, opts)
+    req.sessionOptions.originalName = req.sessionOptions.name
+    delete req.sessionOptions.name
 
     // define req.session getter / setter
     Object.defineProperty(req, 'session', {
@@ -111,10 +134,62 @@ function cookieSession (options) {
       throw new Error('req.session can only be set as null or an object.')
     }
 
+    function clearCookie (name, res) {
+      const { domain, path, sameSite, secure } = options
+      debug('clearCookie %s= %o', name, options)
+      res.clearCookie(name, {
+        domain,
+        path,
+        sameSite,
+        secure
+      })
+    }
+
     onHeaders(res, function setHeaders () {
       if (sess === undefined) {
         // not accessed
         return
+      }
+
+      function setCookieInChunks (sessionName, value, sessionOptions) {
+        debug('setCookieInChunks name=%s value.lengh=%s sessionOpts=%o chunksize=%d', sessionName, value.length, sessionOptions, cookieChunkSize)
+        const chunkCount = Math.ceil(value.length / cookieChunkSize)
+
+        if (chunkCount > 1) {
+          debug('cookie size greater than %d, chunking', cookieChunkSize)
+          for (let i = 0; i < chunkCount; i++) {
+            const chunkValue = value.slice(
+              i * cookieChunkSize,
+              (i + 1) * cookieChunkSize
+            )
+
+            const chunkCookieName = setChunkName(sessionName, i)
+            debug('setCookieInChunks setting cookie %s = %s', chunkCookieName, chunkValue)
+
+            cookies.set(chunkCookieName, chunkValue, sessionOptions)
+            debug('res.headers["Set-Cookie"] %o', res.getHeader('Set-Cookie'))
+          }
+
+          if (sessionName in cookies) {
+            debug('replacing non chunked cookie with chunked cookies')
+            clearCookie(sessionName, res)
+          }
+        } else {
+          cookies.set(sessionName, value, sessionOptions)
+          debug('single chunk options %j', sessionOptions)
+
+          // Get the chunks
+          var i = 0
+          var chunk = null
+          while (chunk) {
+            var cookieName = setChunkName(name, i)
+            chunk = cookies.get(cookieName)
+            i++
+            if (chunk) {
+              res.clearCookie(cookieName)
+            }
+          }
+        }
       }
 
       try {
@@ -125,7 +200,8 @@ function cookieSession (options) {
         } else if ((!sess.isNew || sess.isPopulated) && sess.isChanged) {
           // save populated or non-new changed session
           debug('save %s', name)
-          cookies.set(name, Session.serialize(sess), req.sessionOptions)
+
+          setCookieInChunks(name, Session.serialize(sess), req.sessionOptions)
         }
       } catch (e) {
         debug('error saving session %s', e.message)
@@ -266,13 +342,37 @@ function encode (body) {
   return Buffer.from(str).toString('base64')
 }
 
+function getCookieValueFromChunks (cookies, name, opts) {
+  var returnValue = ''
+
+  returnValue = cookies.get(name, opts)
+  debug('getCookieValueFromChunks initial value %s', returnValue)
+  if (!returnValue) {
+    // Get the chunks
+    returnValue = ''
+    var i = 0
+    var notfound = false
+    while (!notfound) {
+      var chunk = cookies.get(setChunkName(name, i))
+      debug('getCookieValueFromChunks chunk position %d and value = %s', i, chunk)
+      notfound = !chunk
+      if (!notfound) {
+        debug('Getting chunks # %d', i)
+        returnValue = returnValue + chunk
+      }
+      i++
+    }
+  }
+  return returnValue
+}
+
 /**
  * Try getting a session from a cookie.
  * @private
  */
 
 function tryGetSession (cookies, name, opts) {
-  var str = cookies.get(name, opts)
+  var str = getCookieValueFromChunks(cookies, name, opts)
 
   if (!str) {
     return undefined

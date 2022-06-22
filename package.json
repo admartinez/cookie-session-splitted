@@ -1,8 +1,9 @@
 {
-  "name": "cookie-session",
+  "name": "cookie-session-splitted",
   "description": "cookie session middleware",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "contributors": [
+    "Adrian Martinez",
     "Douglas Christopher Wilson <doug@somethingdoug.com>",
     "Jonathan Ong <me@jongleberry.com> (http://jongleberry.com)"
   ],
@@ -13,8 +14,9 @@
     "middleware",
     "session"
   ],
-  "repository": "expressjs/cookie-session",
+  "repository": "expressjs/cookie-session-splitted",
   "dependencies": {
+    "cookie": "^0.5.0",
     "cookies": "0.8.0",
     "debug": "3.2.7",
     "on-headers": "~1.0.2",

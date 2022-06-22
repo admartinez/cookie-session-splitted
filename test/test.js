@@ -7,6 +7,128 @@ var request = require('supertest')
 var session = require('..')
 
 describe('Cookie Session', function () {
+  describe('large cookie values', function () {
+    it('should store a large value into multiple cookies', function (done) {
+      var app = App({
+        maxAge: 86400 * 1000,
+        sameSite: 'none',
+        name: 'bigsession',
+        path: '/testing-path',
+        signed: false,
+        max_cookie_size: 150
+      })
+      var longValue = createStringRepeatChar('b', 20)
+      app.use(function (req, res, next) {
+        req.session.message = longValue
+
+        res.end()
+      })
+
+      request(app)
+        .get('/')
+        .expect(shouldHaveCookieWithValue('bigsession.0', 'eyJtZXNzYWdlIjoiYmJiYmJiYmJiYmJiYmJ'))
+        .expect(shouldHaveCookieWithValue('bigsession.1', 'iYmJiYmIifQ=='))
+        .expect(200, done)
+    })
+
+    it('should decode split cookie', function (done) {
+      var app = App({
+        maxAge: 86400 * 1000,
+        sameSite: 'none',
+        name: 'bigsession',
+        path: '/testing-path',
+        signed: false,
+        max_cookie_size: 150
+      })
+      var longValue = createStringRepeatChar('b', 20)
+      app.use(function (req, res, next) {
+        res.end(String(req.session.message))
+      })
+
+      request(app)
+        .get('/')
+        .set('Cookie', ['bigsession.0=eyJtZXNzYWdlIjoiYmJiYmJiYmJiYmJiYmJ', 'bigsession.1=iYmJiYmIifQ=='])
+        .expect(200, longValue, done)
+    })
+
+    it('should split value into multiple cookies', function (done) {
+      var app = App({
+        maxAge: 86400 * 1000,
+        sameSite: 'none',
+        name: 'bigsession',
+        path: '/testing-path',
+        signed: false,
+        max_cookie_size: 150
+      })
+      var smallvalue = createStringRepeatChar('a', 3)
+      var longValue = createStringRepeatChar('b', 20)
+      app.use(function (req, res, next) {
+        if (req.method === 'POST') {
+          req.session.message = smallvalue
+          res.statusCode = 204
+          res.end()
+        } else {
+          var originalMessage = req.session.message
+          req.session.message = longValue
+          res.end(String(originalMessage))
+        }
+      })
+
+      request(app)
+        .post('/')
+        .expect(shouldHaveCookie('bigsession'))
+        .expect(204, function (err, res) {
+          if (err) return done(err)
+          request(app)
+            .get('/')
+            .set('Cookie', cookieHeader(cookies(res)))
+            .expect(shouldHaveCookieWithValue('bigsession.0', 'eyJtZXNzYWdlIjoiYmJiYmJiYmJiYmJiYmJ'))
+            .expect(shouldHaveCookieWithValue('bigsession.1', 'iYmJiYmIifQ=='))
+            .expect(shouldNotHaveCookie('bigsession'))
+            .expect(200, smallvalue, done)
+        })
+    })
+
+    it('should merge multiple cookies into 1', function (done) {
+      var app = App({
+        maxAge: 86400 * 1000,
+        sameSite: 'none',
+        name: 'bigsession',
+        path: '/testing-path',
+        signed: false,
+        max_cookie_size: 150
+      })
+      var smallvalue = createStringRepeatChar('a', 3)
+      var longValue = createStringRepeatChar('b', 20)
+      app.use(function (req, res, next) {
+        if (req.method === 'POST') {
+          req.session.message = longValue
+          res.statusCode = 204
+          res.end()
+        } else {
+          var originalMessage = req.session.message
+          req.session.message = smallvalue
+          res.end(String(originalMessage))
+        }
+      })
+
+      request(app)
+        .post('/')
+        .expect(shouldHaveCookieWithValue('bigsession.0', 'eyJtZXNzYWdlIjoiYmJiYmJiYmJiYmJiYmJ'))
+        .expect(shouldHaveCookieWithValue('bigsession.1', 'iYmJiYmIifQ=='))
+        .expect(204, function (err, res) {
+          if (err) return done(err)
+          request(app)
+            .get('/')
+            .set('Cookie', cookieHeader(cookies(res)))
+            .expect(shouldHaveCookie('bigsession'))
+            .expect(shouldNotHaveCookie('bigsession.0'))
+            .expect(shouldNotHaveCookie('bigsession.1'))
+            .expect(200, longValue, done)
+        })
+    })
+  })
+
   describe('"httpOnly" option', function () {
     it('should default to "true"', function (done) {
       var app = App()
@@ -440,7 +562,7 @@ describe('Cookie Session', function () {
     it('should be the session options', function (done) {
       var app = App({ name: 'my.session' })
       app.use(function (req, res, next) {
-        res.end(String(req.sessionOptions.name))
+        res.end(String(req.sessionOptions.originalName))
       })
 
       request(app)
@@ -474,7 +596,8 @@ describe('Cookie Session', function () {
 })
 
 function App (options) {
-  var opts = Object.create(options || null)
+  // var opts = Object.create(options || null)
+  var opts = Object.assign({}, options)
   opts.keys = ['a', 'b']
   var app = connect()
   app.use(session(opts))
@@ -518,9 +641,24 @@ function cookies (res) {
   return obj
 }
 
+function createStringRepeatChar (character, times) {
+  var returnString = ''
+  for (var i = 0; i < times; i++) {
+    returnString = returnString + character
+  }
+
+  return returnString
+}
+
 function shouldHaveCookie (name) {
   return function (res) {
     assert.ok((name in cookies(res)), 'should have cookie "' + name + '"')
+  }
+}
+
+function shouldNotHaveCookie (name) {
+  return function (res) {
+    assert.ok(!(name in cookies(res)), 'should not have cookie "' + name + '"')
   }
 }
 
