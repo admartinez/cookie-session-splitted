@@ -22,7 +22,7 @@ The following points can help you choose which to use:
 
 ## Disclaimer
 
-This is a modification of the package cookie-session
+This is a modification of the package [cookie-session](https://www.npmjs.com/package/cookie-session)
 
 ## Install
 
@@ -51,7 +51,7 @@ app.use(cookieSessionSplitted({
 }))
 ```
 
-### cookieSession(options)
+### cookieSessionSplitted(options)
 
 Create a new cookie session middleware with the provided options. This middleware
 will attach the property `session` to `req`, which provides an object representing
@@ -145,14 +145,14 @@ was not destroyed.
 ### Simple view counter example
 
 ```js
-var cookieSession = require('cookie-session-splitted')
+var cookieSessionSplitted = require('cookie-session-splitted')
 var express = require('express')
 
 var app = express()
 
 app.set('trust proxy', 1) // trust first proxy
 
-app.use(cookieSession({
+app.use(cookieSessionSplitted({
   name: 'session',
   keys: ['key1', 'key2']
 }))
@@ -171,14 +171,14 @@ app.listen(3000)
 ### Per-user sticky max age
 
 ```js
-var cookieSession = require('cookie-session-splitted')
+var cookieSessionSplitted = require('cookie-session-splitted')
 var express = require('express')
 
 var app = express()
 
 app.set('trust proxy', 1) // trust first proxy
 
-app.use(cookieSession({
+app.use(cookieSessionSplitted({
   name: 'session',
   keys: ['key1', 'key2']
 }))
@@ -201,12 +201,12 @@ user's browser (in response to user activity, for example) some kind of
 modification to the session needs be made.
 
 ```js
-var cookieSession = require('cookie-session-splitted')
+var cookieSessionSplitted = require('cookie-session-splitted')
 var express = require('express')
 
 var app = express()
 
-app.use(cookieSession({
+app.use(cookieSessionSplitted({
   name: 'session',
   keys: ['key1', 'key2']
 }))
@@ -227,13 +227,13 @@ This example shows creating a custom `Keygrip` instance as the `keys` option
 to provide keys and additional signature configuration.
 
 ```js
-var cookieSession = require('cookie-session-splitted')
+var cookieSessionSplitted = require('cookie-session-splitted')
 var express = require('express')
 var Keygrip = require('keygrip')
 
 var app = express()
 
-app.use(cookieSession({
+app.use(cookieSessionSplitted({
   name: 'session',
   keys: new Keygrip(['key1', 'key2'], 'SHA384', 'base64')
 }))
