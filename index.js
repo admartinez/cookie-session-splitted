@@ -78,6 +78,10 @@ function cookieSession (options) {
   )
   const cookieChunkSize = opts.max_cookie_size - emptyCookie.length
 
+  if(cookieChunkSize < 0){
+    throw new Error('cookie chunks are too small, increase the max_cookie_size value in the options');
+  }
+
   return function _cookieSession (req, res, next) {
     var cookies = new Cookies(req, res, {
       keys: keys
