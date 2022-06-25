@@ -1,11 +1,11 @@
-# cookie-session
+# cookie-session-splitted
 
 [![NPM Version][npm-version-image]][npm-url]
 [![NPM Downloads][npm-downloads-image]][npm-url]
 [![Build Status][ci-image]][ci-url]
 [![Test Coverage][coveralls-image]][coveralls-url]
 
-Simple cookie-based session middleware.
+cookie-based session middleware that splits the value into multiple cookies if it is too large
 
 A user session can be stored in two main ways with cookies: on the server or on
 the client. This module stores the session data on the client within a cookie,
@@ -15,11 +15,14 @@ session data on the server, typically in a database.
 
 The following points can help you choose which to use:
 
-  * `cookie-session` does not require any database / resources on the server side,
+  * `cookie-session-splitted` does not require any database / resources on the server side,
     though the total session data cannot exceed the browser's max cookie size.
-  * `cookie-session` can simplify certain load-balanced scenarios.
-  * `cookie-session` can be used to store a "light" session and include an identifier
-    to look up a database-backed secondary store to reduce database lookups.
+  * `cookie-session-splitted` can simplify certain load-balanced scenarios.
+  * `cookie-session-splitted` can be used to store a "large" session by splitting the value into multiple cookies.
+
+## Disclaimer
+
+This is a modification of the package cookie-session
 
 ## Install
 
@@ -28,18 +31,18 @@ This is a [Node.js](https://nodejs.org/en/) module available through the
 [`npm install` command](https://docs.npmjs.com/getting-started/installing-npm-packages-locally):
 
 ```sh
-$ npm install cookie-session
+$ npm install cookie-session-splitted
 ```
 
 ## API
 
 ```js
-var cookieSession = require('cookie-session')
+var cookieSessionSplitted = require('cookie-session-splitted')
 var express = require('express')
 
 var app = express()
 
-app.use(cookieSession({
+app.use(cookieSessionSplitted({
   name: 'session',
   keys: [/* secret keys */],
 
@@ -142,7 +145,7 @@ was not destroyed.
 ### Simple view counter example
 
 ```js
-var cookieSession = require('cookie-session')
+var cookieSession = require('cookie-session-splitted')
 var express = require('express')
 
 var app = express()
@@ -168,7 +171,7 @@ app.listen(3000)
 ### Per-user sticky max age
 
 ```js
-var cookieSession = require('cookie-session')
+var cookieSession = require('cookie-session-splitted')
 var express = require('express')
 
 var app = express()
@@ -198,7 +201,7 @@ user's browser (in response to user activity, for example) some kind of
 modification to the session needs be made.
 
 ```js
-var cookieSession = require('cookie-session')
+var cookieSession = require('cookie-session-splitted')
 var express = require('express')
 
 var app = express()
@@ -224,7 +227,7 @@ This example shows creating a custom `Keygrip` instance as the `keys` option
 to provide keys and additional signature configuration.
 
 ```js
-var cookieSession = require('cookie-session')
+var cookieSession = require('cookie-session-splitted')
 var express = require('express')
 var Keygrip = require('keygrip')
 
@@ -242,25 +245,7 @@ app.use(cookieSession({
 
 ### Max Cookie Size
 
-Because the entire session object is encoded and stored in a cookie, it is
-possible to exceed the maximum cookie size limits on different browsers. The
-[RFC6265 specification](https://tools.ietf.org/html/rfc6265#section-6.1)
-recommends that a browser **SHOULD** allow
-
-> At least 4096 bytes per cookie (as measured by the sum of the length of
-> the cookie's name, value, and attributes)
-
-In practice this limit differs slightly across browsers. See a list of
-[browser limits here](http://browsercookielimits.squawky.net/). As a rule
-of thumb **don't exceed 4093 bytes per domain**.
-
-If your session object is large enough to exceed a browser limit when encoded,
-in most cases the browser will refuse to store the cookie. This will cause the
-following requests from the browser to either a) not have any session
-information or b) use old session information that was small enough to not
-exceed the cookie limit.
-
-If you find your session object is hitting these limits, it is best to
+You should consider if this alternative satisfy your requirements because in most cases, it is best to
 consider if  data in your session should be loaded from a database on the
 server instead of transmitted to/from the browser with every request. Or
 move to an [alternative session strategy](https://github.com/expressjs/session#compatible-session-stores)
@@ -269,10 +254,10 @@ move to an [alternative session strategy](https://github.com/expressjs/session#c
 
 [MIT](LICENSE)
 
-[ci-image]: https://badgen.net/github/checks/expressjs/cookie-session/master?label=ci
-[ci-url]: https://github.com/expressjs/cookie-session/actions?query=workflow%3Aci
-[coveralls-image]: https://badgen.net/coveralls/c/github/expressjs/cookie-session/master
-[coveralls-url]: https://coveralls.io/r/expressjs/cookie-session?branch=master
-[npm-downloads-image]: https://badgen.net/npm/dm/cookie-session
-[npm-url]: https://npmjs.org/package/cookie-session
-[npm-version-image]: https://badgen.net/npm/v/cookie-session
+[ci-image]: https://badgen.net/github/checks/expressjs/cookie-session-splitted/master?label=ci
+[ci-url]: https://github.com/expressjs/cookie-session-splitted/actions?query=workflow%3Aci
+[coveralls-image]: https://badgen.net/coveralls/c/github/expressjs/cookie-session-splitted/master
+[coveralls-url]: https://coveralls.io/r/expressjs/cookie-session-splitted?branch=master
+[npm-downloads-image]: https://badgen.net/npm/dm/cookie-session-splitted
+[npm-url]: https://npmjs.org/package/cookie-session-splitted
+[npm-version-image]: https://badgen.net/npm/v/cookie-session-splitted
